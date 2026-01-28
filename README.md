@@ -30,7 +30,7 @@ This software processes multiple session averages (the values displayed by the i
 
 ## Quick Start
 
-> The usage has been simplified for ease of use, however note that this software assumes that you have **basic knowledge of Python** and have it installed on your system.
+The usage has been simplified for ease of use, however note that this software assumes that you have **basic knowledge of Python** and have it installed on your system.
 
 ```bash
 git clone https://github.com/edujbarrios/real-iop-estimator.git
@@ -109,8 +109,6 @@ Standard average, sensitive to all outliers. Use only when measurement consisten
 ---
 
 ## Author
-
-
 https://edujbarrios.com - https://github.com/edujbarrios
 
 > [!WARNING]  
@@ -119,12 +117,14 @@ https://edujbarrios.com - https://github.com/edujbarrios
 
 *For any required updates or issues, please open an issue or pull request. Alternatively, contact me trough my email.*
 
+## Work in Progress
 > [!NOTE]  
 > This project is still work in progress. New features and improvements will be added over time. Incluiding:
 > - User management and data storage for long term monitoring.
 > - .exe or standalone app distribution for easy use without Python setup.
 > - Research new formulas and methods for IOP estimation.
 
+## Citing
 if you find this project useful, consider starring the repository on GitHub to support its development!
 
 Also if you used it in any research work, please cite it as:
@@ -139,3 +139,4 @@ Also if you used it in any research work, please cite it as:
   note         = {GitHub repository}
 }
 ```
+
