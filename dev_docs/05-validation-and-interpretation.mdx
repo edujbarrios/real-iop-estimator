@@ -1,0 +1,375 @@
+# Validation and Interpretation
+
+## Input Validation
+
+**File**: `src/validation.py`
+
+### Validation Flow
+
+```python
+def validate_measurements(input_string: str) -> List[float]:
+    """
+    Validate and parse comma-separated IOP measurements.
+    
+    Args:
+        input_string: Raw user input
+        
+    Returns:
+        List of valid float measurements
+        
+    Raises:
+        ValueError: If input is invalid
+    """
+```
+
+### Step-by-Step Process
+
+#### 1. Empty Input Check
+
+```python
+if not input_string or not input_string.strip():
+    raise ValueError("No measurements provided")
+```
+
+#### 2. Parse CSV String
+
+```python
+try:
+    values = [float(x.strip()) for x in input_string.split(',')]
+except ValueError:
+    raise ValueError(
+        "Invalid format. Use comma-separated numbers (e.g., 12, 14, 13)"
+    )
+```
+
+**Handles:**
+- Extra whitespace
+- Invalid characters
+- Non-numeric values
+
+#### 3. Minimum Count Validation
+
+```python
+if len(values) < MIN_MEASUREMENTS:
+    raise ValueError(
+        f"At least {MIN_MEASUREMENTS} measurements required. "
+        f"You provided {len(values)}"
+    )
+```
+
+#### 4. Range Validation
+
+```python
+for value in values:
+    if value < 1 or value > 100:
+        raise ValueError(
+            f"IOP value {value} out of valid range (1-100 mmHg)"
+        )
+```
+
+**Physiological bounds:**
+- Minimum: 1 mmHg (extreme hypotony)
+- Maximum: 100 mmHg (severe hypertension)
+
+#### 5. Duplicate Check (Optional)
+
+```python
+if len(values) != len(set(values)):
+    # Warning, but not error (duplicates are valid)
+    pass
+```
+
+### Configuration Constants
+
+```python
+# config.py
+MIN_MEASUREMENTS = 3  # Statistical requirement
+IOP_MIN_VALUE = 1     # mmHg
+IOP_MAX_VALUE = 100   # mmHg
+```
+
+---
+
+## Clinical Interpretation
+
+**File**: `src/interpretation.py`
+
+### IOP Value Interpretation
+
+```python
+def interpret_iop(iop_value: float) -> str:
+    """
+    Provide clinical interpretation of IOP value.
+    
+    Args:
+        iop_value: Calculated IOP in mmHg
+        
+    Returns:
+        Clinical status string
+    """
+    if iop_value < CLINICAL_RANGES['hypotony']:
+        return INTERPRETATION_LABELS['hypotony']
+    elif iop_value > CLINICAL_RANGES['elevated']:
+        return INTERPRETATION_LABELS['elevated']
+    else:
+        return INTERPRETATION_LABELS['normal']
+```
+
+### Clinical Thresholds
+
+```python
+# config.py
+CLINICAL_RANGES = {
+    'hypotony': 6.0,      # Below this = hypotony
+    'normal_low': 10.0,   # Normal range start
+    'normal_high': 21.0,  # Normal range end
+    'elevated': 21.0      # Above this = elevated
+}
+
+INTERPRETATION_LABELS = {
+    'hypotony': 'Hypotony',
+    'normal': 'Normal Range',
+    'elevated': 'Elevated'
+}
+```
+
+**Clinical rationale:**
+- **< 6 mmHg**: Hypotony (potential complications)
+- **10-21 mmHg**: Normal IOP range
+- **> 21 mmHg**: Elevated (glaucoma risk)
+
+### Status Color Coding
+
+```python
+def get_status_color(interpretation: str) -> str:
+    """
+    Get color for clinical status display.
+    
+    Args:
+        interpretation: Clinical status string
+        
+    Returns:
+        Color name for UI rendering
+    """
+    if interpretation == 'Hypotony':
+        return 'red'      # Danger
+    elif interpretation == 'Elevated':
+        return 'red'      # Danger
+    else:
+        return 'green'    # Normal
+```
+
+**Color scheme:**
+- 🔴 Red: Abnormal (hypotony or elevated)
+- 🟢 Green: Normal range
+- 🟠 Orange: Borderline (future feature)
+
+---
+
+## Confidence Assessment
+
+### Variability-Based Confidence
+
+```python
+def get_confidence_note(variability: float) -> str:
+    """
+    Assess measurement confidence based on variability.
+    
+    Args:
+        variability: Range of measurements (max - min)
+        
+    Returns:
+        Confidence assessment string
+    """
+    if variability <= VARIABILITY_THRESHOLDS['excellent']:
+        return "High Confidence: Excellent measurement consistency"
+    elif variability <= VARIABILITY_THRESHOLDS['good']:
+        return "Good Confidence: Acceptable measurement variability"
+    elif variability <= VARIABILITY_THRESHOLDS['fair']:
+        return "Fair Confidence: Moderate variability detected"
+    else:
+        return "Low Confidence: High variability - consider more measurements"
+```
+
+### Confidence Thresholds
+
+```python
+# config.py
+VARIABILITY_THRESHOLDS = {
+    'excellent': 2.0,  # ≤ 2 mmHg range
+    'good': 4.0,       # 2-4 mmHg range
+    'fair': 6.0        # 4-6 mmHg range
+    # > 6 mmHg = poor
+}
+```
+
+**Clinical meaning:**
+- **≤ 2 mmHg**: Very consistent measurements
+- **2-4 mmHg**: Acceptable variation
+- **4-6 mmHg**: Significant variation
+- **> 6 mmHg**: Poor reliability, need more data
+
+### Standard Deviation Assessment
+
+```python
+def assess_std_dev(std_dev: float) -> str:
+    """
+    Interpret standard deviation.
+    
+    Args:
+        std_dev: Sample standard deviation
+        
+    Returns:
+        Interpretation string
+    """
+    if std_dev < 1.5:
+        return "Very low dispersion"
+    elif std_dev < 3.0:
+        return "Low dispersion"
+    elif std_dev < 4.5:
+        return "Moderate dispersion"
+    else:
+        return "High dispersion"
+```
+
+---
+
+## Error Messages
+
+### User-Friendly Error Formatting
+
+```python
+def format_error_message(error: Exception) -> str:
+    """
+    Convert technical errors to user-friendly messages.
+    
+    Args:
+        error: Exception object
+        
+    Returns:
+        Formatted error message
+    """
+    error_map = {
+        "could not convert": "Invalid number format. Use only digits and commas.",
+        "at least 3": "Minimum 3 measurements required for reliable estimation.",
+        "out of range": "IOP values must be between 1 and 100 mmHg.",
+    }
+    
+    error_str = str(error).lower()
+    for key, message in error_map.items():
+        if key in error_str:
+            return message
+    
+    return str(error)  # Fallback to original
+```
+
+### Common Error Scenarios
+
+| Input | Error | Message |
+|-------|-------|---------|
+| Empty | ValueError | "No measurements provided" |
+| `12, abc, 14` | ValueError | "Invalid format. Use comma-separated numbers" |
+| `12, 14` | ValueError | "At least 3 measurements required" |
+| `12, 150, 14` | ValueError | "IOP value 150 out of valid range (1-100 mmHg)" |
+| `12 14 15` | ValueError | "Invalid format. Use comma-separated numbers" |
+
+---
+
+## Testing Validation Logic
+
+### Unit Tests
+
+```python
+def test_valid_input():
+    result = validate_measurements("12, 14, 13, 15")
+    assert result == [12.0, 14.0, 13.0, 15.0]
+
+def test_with_whitespace():
+    result = validate_measurements(" 12 , 14 , 13 ")
+    assert result == [12.0, 14.0, 13.0]
+
+def test_insufficient_measurements():
+    with pytest.raises(ValueError):
+        validate_measurements("12, 14")
+
+def test_out_of_range():
+    with pytest.raises(ValueError):
+        validate_measurements("12, 150, 14")
+
+def test_invalid_characters():
+    with pytest.raises(ValueError):
+        validate_measurements("12, abc, 14")
+
+def test_empty_input():
+    with pytest.raises(ValueError):
+        validate_measurements("")
+```
+
+---
+
+## Integration with Calculator
+
+### Complete Flow
+
+```python
+# In app_main.py
+if calculate_button:
+    try:
+        # 1. Validate input
+        measurements = validate_measurements(iop_input)
+        
+        # 2. Create calculator
+        calculator = IOPCalculator(measurements)
+        
+        # 3. Calculate all metrics
+        results = calculator.calculate_all()
+        
+        # 4. Interpret primary result
+        interpretation = interpret_iop(results['safe_iop'])
+        
+        # 5. Assess confidence
+        confidence = get_confidence_note(results['variability'])
+        
+        # 6. Display results
+        display_primary_result(
+            results['safe_iop'], 
+            interpretation, 
+            confidence
+        )
+        
+    except ValueError as e:
+        st.error(f"⚠️ {str(e)}")
+```
+
+---
+
+## Future Enhancements
+
+### Planned Validation Features
+
+1. **Outlier Detection**:
+```python
+def detect_outliers(measurements: List[float]) -> List[float]:
+    """Identify statistical outliers using IQR method"""
+```
+
+2. **Temporal Validation**:
+```python
+def validate_temporal_sequence(
+    measurements: List[float], 
+    timestamps: List[datetime]
+) -> bool:
+    """Ensure measurements are from different sessions"""
+```
+
+3. **Duplicate Warning**:
+```python
+def warn_duplicates(measurements: List[float]) -> Optional[str]:
+    """Warn if many duplicate values exist"""
+```
+
+### Enhanced Interpretation
+
+1. **Trend Analysis**: Compare with previous sessions
+2. **Risk Stratification**: Combine IOP + other factors
+3. **Treatment Recommendations**: Based on IOP category

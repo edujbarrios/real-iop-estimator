@@ -1,0 +1,144 @@
+# Architecture Overview
+
+## Project Structure
+
+```
+IOP/
+├── app.py                  # Application launcher
+├── requirements.txt        # Python dependencies
+├── src/                    # Source code
+│   ├── __init__.py
+│   ├── app_main.py        # Streamlit UI
+│   ├── config.py          # Configuration constants
+│   ├── iop_calculator.py  # Main calculator class
+│   ├── validation.py      # Input validation
+│   ├── interpretation.py  # Clinical interpretation
+│   ├── statistics.py      # Statistical utilities
+│   ├── safe_iop.py        # Trimmed mean implementation
+│   ├── possible_iop.py    # Median implementation
+│   ├── clinical_iop.py    # Range midpoint implementation
+│   ├── mean_iop.py        # Arithmetic mean implementation
+│   ├── trimean_iop.py     # Tukey's Trimean implementation
+│   ├── iqm_iop.py         # Interquartile Mean implementation
+│   ├── winsorized_iop.py  # Winsorized Mean implementation
+│   ├── weighted_iop.py    # Weighted Mean implementation
+│   └── visualization.py   # Plotting utilities (deprecated)
+└── docs/                   # Documentation
+    ├── CLINICAL_BACKGROUND.md
+    └── QUICKSTART.md
+
+```
+
+## Design Principles
+
+### 1. Modular Architecture
+- **Separation of Concerns**: Each IOP calculation method is isolated in its own module
+- **Single Responsibility**: Each module has one clear purpose
+- **Easy Extension**: New statistical methods can be added without modifying existing code
+
+### 2. Data Flow
+
+```
+User Input (CSV string)
+    ↓
+Validation (validation.py)
+    ↓
+Parsing to numpy array
+    ↓
+IOPCalculator instantiation
+    ↓
+Multiple calculation methods executed
+    ↓
+Results dictionary
+    ↓
+Clinical interpretation
+    ↓
+UI Display (Streamlit)
+```
+
+### 3. Technology Stack
+
+- **Python 3.8+**: Core language
+- **Streamlit**: Web UI framework
+- **NumPy**: Numerical computing
+- **Matplotlib**: Data visualization (deprecated in current version)
+
+### 4. Configuration Management
+
+All constants are centralized in `config.py`:
+- Clinical thresholds
+- UI settings
+- Validation rules
+- Plot styling (deprecated)
+
+## Core Components
+
+### IOPCalculator Class
+
+Central orchestrator that:
+1. Validates input data
+2. Stores measurements as sorted numpy array
+3. Provides methods for all 8 calculation approaches
+4. Returns unified results dictionary
+5. Delegates interpretation to interpretation module
+
+### Calculation Modules
+
+Each statistical method is implemented as a pure function:
+- **Input**: numpy array of measurements
+- **Output**: single float value (rounded to 1 decimal)
+- **No side effects**: stateless and testable
+
+### UI Layer (Streamlit)
+
+Separated into logical display functions:
+- `display_header()`: Title and branding
+- `display_input_interface()`: Measurement input form
+- `display_primary_result()`: Safe IOP emphasis
+- `display_secondary_estimates()`: All other methods
+- `display_statistics()`: Variability metrics
+- `display_disclaimer()`: Legal/medical warnings
+
+## Key Design Decisions
+
+### Why Streamlit?
+- Rapid development
+- Built-in state management
+- No frontend coding required
+- Easy deployment options
+
+### Why Numpy?
+- Efficient array operations
+- Statistical functions (median, percentile, etc.)
+- Industry standard for numerical computing
+
+### Why Separate Modules?
+- **Testability**: Each method can be unit tested independently
+- **Maintainability**: Changes to one method don't affect others
+- **Readability**: Clear file names indicate purpose
+- **Extensibility**: New methods can be added without refactoring
+
+### Why No Database?
+- Stateless application
+- No user data persistence needed
+- Privacy by design (no data storage)
+- Simplified deployment
+
+## Application Lifecycle
+
+1. **Startup**: `app.py` launches Streamlit with `app_main.py`
+2. **Path Setup**: `src/` added to Python path for imports
+3. **Page Config**: Dark theme, centered layout applied
+4. **User Input**: Form rendered in main area
+5. **Validation**: Input parsed and checked on button click
+6. **Calculation**: All 8 methods computed simultaneously
+7. **Display**: Results rendered in organized sections
+8. **Stateless**: No session persistence, fresh calculation each time
+
+## Error Handling Strategy
+
+- **Input Validation**: Pre-calculation checks with clear error messages
+- **Type Safety**: NumPy arrays ensure consistent data types
+- **Graceful Degradation**: Minimum 3 measurements required, methods adapt
+- **User Feedback**: Descriptive error messages in UI
+- **No Crashes**: Try-catch blocks in main loop prevent application failure

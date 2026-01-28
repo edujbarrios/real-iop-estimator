@@ -1,0 +1,200 @@
+# IOPCalculator Implementation
+
+## Core Calculator Class
+
+The `IOPCalculator` class is the heart of the application, orchestrating all calculation methods.
+
+### Class Structure
+
+```python
+class IOPCalculator:
+    def __init__(self, measurements: List[float])
+    def calculate_safe_iop(self) -> float
+    def calculate_possible_iop(self) -> float
+    def calculate_clinical_iop(self) -> float
+    def calculate_mean_iop(self) -> float
+    def calculate_trimean_iop(self) -> float
+    def calculate_iqm_iop(self) -> float
+    def calculate_winsorized_iop(self) -> float
+    def calculate_weighted_iop(self) -> float
+    def get_range(self) -> Tuple[float, float]
+    def get_variability(self) -> float
+    def get_standard_deviation(self) -> float
+    def calculate_all(self) -> Dict[str, float]
+    def interpret_iop(self, iop_value: float) -> str
+    def get_confidence_note(self) -> str
+```
+
+## Initialization
+
+```python
+def __init__(self, measurements: List[float]):
+    if len(measurements) < 3:
+        raise ValueError("At least 3 measurements are required")
+    
+    self.measurements = np.array(sorted(measurements))
+    self.n = len(self.measurements)
+```
+
+**Key decisions:**
+- Sorts measurements immediately for consistent ordering
+- Stores as numpy array for efficient computation
+- Enforces minimum 3 measurements (statistical requirement)
+- Caches array length for performance
+
+## Method Delegation Pattern
+
+Each calculation method delegates to a specialized module:
+
+```python
+def calculate_safe_iop(self) -> float:
+    return calculate_safe_iop(self.measurements)
+```
+
+**Benefits:**
+- Calculator class remains thin and focused
+- Calculation logic is isolated and testable
+- Easy to swap implementations
+- Clear separation of concerns
+
+## Calculate All Method
+
+```python
+def calculate_all(self) -> Dict[str, float]:
+    min_val, max_val = self.get_range()
+    
+    return {
+        'safe_iop': self.calculate_safe_iop(),
+        'possible_iop': self.calculate_possible_iop(),
+        'clinical_iop': self.calculate_clinical_iop(),
+        'mean_iop': self.calculate_mean_iop(),
+        'trimean_iop': self.calculate_trimean_iop(),
+        'iqm_iop': self.calculate_iqm_iop(),
+        'winsorized_iop': self.calculate_winsorized_iop(),
+        'weighted_iop': self.calculate_weighted_iop(),
+        'min_iop': min_val,
+        'max_iop': max_val,
+        'variability': self.get_variability(),
+        'std_dev': self.get_standard_deviation(),
+        'n_measurements': self.n
+    }
+```
+
+**Design notes:**
+- Single call computes all methods
+- Returns unified dictionary for easy access
+- Includes statistical metadata
+- Consistent key naming convention
+
+## Statistical Utilities
+
+### Range Calculation
+
+```python
+def get_range(self) -> Tuple[float, float]:
+    return get_range(self.measurements)
+```
+
+Returns `(min, max)` tuple.
+
+### Variability
+
+```python
+def get_variability(self) -> float:
+    return get_variability(self.measurements)
+```
+
+Computes `max - min` for spread assessment.
+
+### Standard Deviation
+
+```python
+def get_standard_deviation(self) -> float:
+    return get_standard_deviation(self.measurements)
+```
+
+Uses numpy's `std()` with `ddof=1` (sample standard deviation).
+
+## Integration with Interpretation Module
+
+```python
+def interpret_iop(self, iop_value: float) -> str:
+    return interpret_iop(iop_value)
+
+def get_confidence_note(self) -> str:
+    variability = self.get_variability()
+    return get_confidence_note(variability)
+```
+
+Delegates clinical interpretation to specialized module.
+
+## Usage Example
+
+```python
+# Create calculator
+calc = IOPCalculator([12, 14, 13, 15, 12])
+
+# Get all results
+results = calc.calculate_all()
+
+# Access specific values
+safe = results['safe_iop']
+median = results['possible_iop']
+variability = results['variability']
+
+# Get interpretation
+status = calc.interpret_iop(safe)
+confidence = calc.get_confidence_note()
+```
+
+## Type Safety
+
+- **Input**: `List[float]` - Python list of numbers
+- **Internal**: `np.ndarray` - NumPy array for computation
+- **Output**: `float` or `Dict[str, float]` - rounded values
+
+## Performance Characteristics
+
+- **Time Complexity**: O(n log n) due to sorting
+- **Space Complexity**: O(n) for array storage
+- **Typical n**: 3-20 measurements
+- **Performance**: Sub-millisecond for typical inputs
+
+## Error Handling
+
+```python
+try:
+    measurements = validate_measurements(iop_input)
+    calculator = IOPCalculator(measurements)
+    results = calculator.calculate_all()
+except ValueError as e:
+    # Handle validation errors
+    st.error(f"INPUT ERROR: {str(e)}")
+except Exception as e:
+    # Handle unexpected errors
+    st.error(f"SYSTEM ERROR: {str(e)}")
+```
+
+## Testing Considerations
+
+Each method can be tested independently:
+
+```python
+def test_safe_iop():
+    calc = IOPCalculator([10, 12, 14, 16, 18])
+    assert calc.calculate_safe_iop() == 14.0  # (10+12+14+16+18-10-18)/3
+
+def test_minimum_measurements():
+    with pytest.raises(ValueError):
+        IOPCalculator([10, 12])  # Less than 3
+```
+
+## Future Extensions
+
+Easy to add new methods:
+
+1. Create new module: `src/new_method_iop.py`
+2. Add function: `calculate_new_method_iop(measurements)`
+3. Add method to calculator: `def calculate_new_method_iop(self)`
+4. Add to `calculate_all()` dictionary
+5. Update UI to display new result

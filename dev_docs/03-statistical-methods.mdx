@@ -1,0 +1,311 @@
+# Statistical Methods Implementation
+
+## Overview
+
+All statistical methods follow the same pattern:
+- Pure function design
+- NumPy array input
+- Single float output
+- Rounded to 1 decimal place
+- No side effects
+
+## 1. Safe IOP (Trimmed Mean)
+
+**File**: `src/safe_iop.py`
+
+### Implementation
+
+```python
+def calculate_safe_iop(measurements: np.ndarray) -> float:
+    n = len(measurements)
+    
+    if n < 3:
+        return round(np.mean(measurements), 1)
+    
+    total_sum = np.sum(measurements)
+    min_val = np.min(measurements)
+    max_val = np.max(measurements)
+    
+    safe_iop = (total_sum - min_val - max_val) / (n - 2)
+    
+    return round(safe_iop, 1)
+```
+
+### Mathematical Formula
+
+$$IOP_{safe} = \frac{\sum IOP_i - IOP_{min} - IOP_{max}}{n - 2}$$
+
+### Key Features
+- Removes two most extreme values (min and max)
+- Preserves central tendency
+- Fallback to mean for n < 3
+- Most robust for clinical use
+
+---
+
+## 2. Possible IOP (Median)
+
+**File**: `src/possible_iop.py`
+
+### Implementation
+
+```python
+def calculate_possible_iop(measurements: np.ndarray) -> float:
+    return round(np.median(measurements), 1)
+```
+
+### Mathematical Formula
+
+$$IOP_{possible} = \text{median}(IOP_1, \ldots, IOP_n)$$
+
+### Key Features
+- Uses NumPy's efficient median algorithm
+- Handles both odd and even array lengths
+- 50th percentile value
+- Resistant to extreme outliers
+
+---
+
+## 3. Clinical IOP (Range Midpoint)
+
+**File**: `src/clinical_iop.py`
+
+### Implementation
+
+```python
+def calculate_clinical_iop(measurements: np.ndarray) -> float:
+    min_val = np.min(measurements)
+    max_val = np.max(measurements)
+    
+    clinical_iop = (min_val + max_val) / 2
+    
+    return round(clinical_iop, 1)
+```
+
+### Mathematical Formula
+
+$$IOP_{clinical} = \frac{IOP_{min} + IOP_{max}}{2}$$
+
+### Key Features
+- Represents center of pressure range
+- Simple and interpretable
+- Useful for fluctuation assessment
+- Independent of distribution shape
+
+---
+
+## 4. Mean IOP (Arithmetic Average)
+
+**File**: `src/mean_iop.py`
+
+### Implementation
+
+```python
+def calculate_mean_iop(measurements: np.ndarray) -> float:
+    return round(np.mean(measurements), 1)
+```
+
+### Mathematical Formula
+
+$$IOP_{mean} = \frac{1}{n}\sum_{i=1}^{n} IOP_i$$
+
+### Key Features
+- Standard arithmetic mean
+- Most sensitive to outliers
+- Baseline comparison method
+- Uses NumPy's optimized mean function
+
+---
+
+## 5. Trimean IOP (Tukey's Method)
+
+**File**: `src/trimean_iop.py`
+
+### Implementation
+
+```python
+def calculate_trimean_iop(measurements: np.ndarray) -> float:
+    q1 = np.percentile(measurements, 25)
+    median = np.median(measurements)
+    q3 = np.percentile(measurements, 75)
+    
+    trimean = (q1 + 2 * median + q3) / 4
+    
+    return round(trimean, 1)
+```
+
+### Mathematical Formula
+
+$$IOP_{trimean} = \frac{Q_1 + 2 \cdot \text{Median} + Q_3}{4}$$
+
+### Key Features
+- Weighted combination of quartiles
+- Gives double weight to median
+- Highly robust to outliers
+- Accounts for distribution shape
+
+---
+
+## 6. IQM IOP (Interquartile Mean)
+
+**File**: `src/iqm_iop.py`
+
+### Implementation
+
+```python
+def calculate_iqm_iop(measurements: np.ndarray) -> float:
+    sorted_data = np.sort(measurements)
+    n = len(sorted_data)
+    
+    lower_idx = int(np.floor(n / 4))
+    upper_idx = int(np.ceil(3 * n / 4))
+    
+    iqr_data = sorted_data[lower_idx:upper_idx]
+    
+    if len(iqr_data) == 0:
+        return round(np.mean(measurements), 1)
+    
+    iqm = np.mean(iqr_data)
+    
+    return round(iqm, 1)
+```
+
+### Mathematical Formula
+
+$$IOP_{IQM} = \frac{2}{n} \sum_{i=\lfloor n/4 \rfloor}^{\lceil 3n/4 \rceil} IOP_{(i)}$$
+
+### Key Features
+- Averages middle 50% of data
+- Eliminates both tails
+- Superior for skewed distributions
+- Fallback to mean if IQR is empty
+
+---
+
+## 7. Winsorized Mean
+
+**File**: `src/winsorized_iop.py`
+
+### Implementation
+
+```python
+def calculate_winsorized_iop(measurements: np.ndarray) -> float:
+    if len(measurements) < 3:
+        return round(np.mean(measurements), 1)
+    
+    sorted_data = np.sort(measurements)
+    n = len(sorted_data)
+    
+    winsorized = sorted_data.copy()
+    winsorized[0] = sorted_data[1]      # Replace min
+    winsorized[-1] = sorted_data[-2]    # Replace max
+    
+    return round(np.mean(winsorized), 1)
+```
+
+### Mathematical Formula
+
+$$IOP_{wins} = \frac{1}{n}\left(IOP_{(2)} + \sum_{i=2}^{n-1} IOP_{(i)} + IOP_{(n-1)}\right)$$
+
+### Key Features
+- Replaces extremes instead of removing
+- Maintains sample size
+- Reduces outlier influence
+- Useful for small samples (n < 10)
+
+---
+
+## 8. Weighted Mean (Consistency-Based)
+
+**File**: `src/weighted_iop.py`
+
+### Implementation
+
+```python
+def calculate_weighted_iop(measurements: np.ndarray) -> float:
+    median = np.median(measurements)
+    
+    # Calculate weights based on distance from median
+    weights = 1.0 / (1.0 + np.abs(measurements - median))
+    
+    # Weighted average
+    weighted_mean = np.sum(weights * measurements) / np.sum(weights)
+    
+    return round(weighted_mean, 1)
+```
+
+### Mathematical Formula
+
+$$IOP_{weighted} = \frac{\sum_{i=1}^{n} w_i \cdot IOP_i}{\sum_{i=1}^{n} w_i}, \quad w_i = \frac{1}{1 + |IOP_i - \text{Median}|}$$
+
+### Key Features
+- Soft outlier rejection
+- Adaptive weighting scheme
+- No hard cutoffs
+- Values closer to median get higher weight
+
+---
+
+## Common Patterns
+
+### Rounding Strategy
+
+All methods use `round(value, 1)` for:
+- Clinical relevance (0.1 mmHg precision)
+- UI consistency
+- Matches iCare device precision
+
+### Edge Case Handling
+
+```python
+if n < 3:
+    return round(np.mean(measurements), 1)
+```
+
+Most methods fall back to simple mean when insufficient data.
+
+### NumPy Efficiency
+
+- `np.sum()`, `np.mean()`, `np.median()`: O(n)
+- `np.sort()`: O(n log n)
+- `np.percentile()`: O(n)
+- All operations are vectorized
+
+### Type Consistency
+
+- Input: `np.ndarray` (float64)
+- Intermediate: float64 (NumPy default)
+- Output: Python `float` (rounded)
+
+## Testing Approach
+
+Example test cases:
+
+```python
+def test_safe_iop_removes_extremes():
+    # [10, 12, 14, 16, 18]
+    # Remove 10 and 18
+    # (12 + 14 + 16) / 3 = 14.0
+    calc = IOPCalculator([10, 12, 14, 16, 18])
+    assert calc.calculate_safe_iop() == 14.0
+
+def test_median_odd_length():
+    # [10, 12, 14, 16, 18]
+    # Median = 14
+    calc = IOPCalculator([10, 12, 14, 16, 18])
+    assert calc.calculate_possible_iop() == 14.0
+
+def test_trimean_calculation():
+    # Q1 = 12, Median = 14, Q3 = 16
+    # (12 + 2*14 + 16) / 4 = 14.0
+    calc = IOPCalculator([10, 12, 14, 16, 18])
+    assert calc.calculate_trimean_iop() == 14.0
+```
+
+## Performance Optimization
+
+- Pre-sorted array in calculator initialization
+- Single-pass algorithms where possible
+- NumPy's C-optimized operations
+- No unnecessary copies (except Winsorized)
+- Lazy evaluation (only compute when called)

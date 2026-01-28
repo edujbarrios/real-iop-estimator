@@ -1,0 +1,337 @@
+# UI Implementation (Streamlit)
+
+## Streamlit Architecture
+
+The UI is built with Streamlit, a Python framework that turns scripts into web apps.
+
+### Page Configuration
+
+```python
+STREAMLIT_CONFIG = {
+    "page_title": "Real IOP Estimator",
+    "page_icon": "👁️",
+    "layout": "centered",
+    "initial_sidebar_state": "expanded"
+}
+
+st.set_page_config(**STREAMLIT_CONFIG)
+```
+
+### Custom Styling
+
+```python
+st.markdown("""
+    <style>
+    .main {
+        background-color: #0e1117;
+    }
+    .stAlert {
+        background-color: #262730;
+    }
+    h1, h2, h3 {
+        color: #fafafa;
+        font-family: 'Segoe UI', sans-serif;
+    }
+    </style>
+""", unsafe_allow_html=True)
+```
+
+## Component Architecture
+
+### 1. Header Display
+
+```python
+def display_header():
+    st.markdown(
+        "<h1 style='text-align: center;'>Real IOP Estimator</h1>", 
+        unsafe_allow_html=True
+    )
+    st.markdown(
+        "<p style='text-align: center; color: #888;'>"
+        "Robust intraocular pressure estimation from multiple measurements"
+        "</p>", 
+        unsafe_allow_html=True
+    )
+```
+
+**Design decisions:**
+- Centered title for professional appearance
+- Subtitle explains purpose immediately
+- HTML for fine-grained control
+- Minimalist approach (no clutter)
+
+### 2. Input Interface
+
+```python
+def display_input_interface():
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        st.markdown("### Enter IOP Measurements")
+        
+        iop_input = st.text_area(
+            "Comma-separated values (mmHg)",
+            height=100,
+            placeholder="Example: 12, 14, 13, 15, 12",
+            help=f"Enter at least {MIN_MEASUREMENTS} measurements",
+            label_visibility="collapsed"
+        )
+        
+        st.markdown(
+            "<p style='text-align: center; color: #666;'>"
+            "Separate measurements with commas • Minimum 3 values"
+            "</p>", 
+            unsafe_allow_html=True
+        )
+        
+        calculate_button = st.button(
+            "Calculate Real IOP",
+            type="primary",
+            use_container_width=True
+        )
+    
+    return iop_input, calculate_button
+```
+
+**Key features:**
+- Three-column layout (1-2-1) centers the form
+- Text area instead of text input for multiple values
+- Placeholder shows example format
+- Help text provides guidance
+- Primary button for visual emphasis
+- Collapsed label for cleaner look
+
+### 3. Sidebar (Disclaimer)
+
+```python
+def display_disclaimer():
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### ⚠️ Disclaimer")
+    st.sidebar.caption("""
+    **NOT a medical device. NOT for diagnosis.**
+    
+    Does NOT replace clinical judgment. 
+    Author assumes NO LIABILITY.
+    
+    Consult a qualified ophthalmologist.
+    """)
+    
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### ℹ️ About")
+    st.sidebar.caption("""
+    Uses robust statistical methods to estimate real IOP.
+    
+    **Safe IOP** (trimmed mean) is the primary estimate.
+    """)
+```
+
+**Design decisions:**
+- Sidebar keeps legal content visible but non-intrusive
+- Warning emoji (⚠️) draws attention
+- Caption styling for less emphasis than main content
+- Concise text for quick scanning
+
+### 4. Primary Result Display
+
+```python
+def display_primary_result(safe_iop: float, interpretation: str, confidence: str):
+    st.markdown("### Primary Estimate: Safe IOP (Trimmed Mean)")
+    
+    col1, col2, col3 = st.columns([2, 2, 3])
+    
+    with col1:
+        st.metric(
+            label="Safe IOP",
+            value=f"{safe_iop} mmHg",
+            help="Most reliable estimate - removes outliers"
+        )
+    
+    with col2:
+        color = get_status_color(interpretation)
+        if color == 'red':
+            st.markdown(f"**Clinical Status:** :red[{interpretation}]")
+        elif color == 'green':
+            st.markdown(f"**Clinical Status:** :green[{interpretation}]")
+        else:
+            st.markdown(f"**Clinical Status:** :orange[{interpretation}]")
+    
+    with col3:
+        st.info(confidence)
+    
+    st.latex(r"IOP_{safe} = \frac{\sum IOP_i - IOP_{min} - IOP_{max}}{n - 2}")
+    
+    st.markdown("""
+    **Clinical Note:** Safe IOP provides the most robust estimate 
+    by excluding statistical outliers while preserving central tendency.
+    """)
+```
+
+**Key features:**
+- Metric widget for prominent display
+- Color-coded clinical status (red/green/orange)
+- LaTeX formula for mathematical clarity
+- Three-column layout for organized information
+- Info box for confidence assessment
+
+### 5. Secondary Estimates (Expandable)
+
+```python
+def display_secondary_estimates(results: dict):
+    st.markdown("---")
+    st.markdown("### Additional Estimates")
+    
+    with st.expander("Trimean IOP - " + str(results['trimean_iop']) + " mmHg"):
+        col1, col2 = st.columns([1, 2])
+        with col1:
+            st.metric(
+                label="Trimean IOP",
+                value=f"{results['trimean_iop']} mmHg"
+            )
+        with col2:
+            st.latex(r"IOP_{trimean} = \frac{Q_1 + 2 \cdot \text{Median} + Q_3}{4}")
+```
+
+**Design decisions:**
+- Expanders keep UI clean (collapsed by default)
+- Value in expander title for quick scanning
+- Two-column layout: metric on left, formula on right
+- Consistent pattern across all methods
+- No clinical context in UI (kept in README)
+
+### 6. Statistics Display
+
+```python
+def display_statistics(results: dict):
+    st.markdown("---")
+    st.markdown("### Statistical Analysis")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.metric("Sample Size", f"{results['n_measurements']} measurements")
+        st.metric("Minimum", f"{results['min_iop']} mmHg")
+        st.metric("Maximum", f"{results['max_iop']} mmHg")
+        st.metric("Range", f"{results['variability']} mmHg")
+        st.metric("Std Dev", f"{results['std_dev']} mmHg")
+    
+    with col2:
+        st.latex(r"\text{Range} = IOP_{max} - IOP_{min}")
+        st.latex(r"\sigma = \sqrt{\frac{1}{n-1}\sum_{i=1}^{n}(IOP_i - \bar{IOP})^2}")
+        
+        variability = results['variability']
+        if variability <= 2:
+            st.success(f"Excellent consistency")
+        elif variability <= 4:
+            st.info(f"Good consistency")
+        elif variability <= 6:
+            st.warning(f"Fair consistency")
+        else:
+            st.error(f"High variability - more measurements recommended")
+```
+
+**Key features:**
+- Two-column layout: metrics left, formulas right
+- Color-coded consistency assessment
+- LaTeX for statistical formulas
+- Clear thresholds for interpretation
+
+## State Management
+
+Streamlit uses **rerun-based state**:
+
+```python
+if calculate_button:
+    # Button click triggers calculation
+    # Results displayed immediately
+    # No explicit state storage needed
+```
+
+**Benefits:**
+- No manual state management
+- Simple conditional rendering
+- Fresh calculation each time
+- No stale data issues
+
+## Error Handling in UI
+
+```python
+try:
+    measurements = validate_measurements(iop_input)
+    calculator = IOPCalculator(measurements)
+    results = calculator.calculate_all()
+    # ... display results
+except ValueError as e:
+    st.error(f"⚠️ INPUT ERROR: {str(e)}")
+except Exception as e:
+    st.error(f"⚠️ SYSTEM ERROR: {str(e)}")
+    st.error("Please verify input format and try again.")
+```
+
+**Error types:**
+- `ValueError`: User input issues (handled gracefully)
+- `Exception`: Unexpected errors (caught for stability)
+- Error messages use emoji for visual distinction
+
+## Responsive Design
+
+```python
+# Centered layout for large screens
+col1, col2, col3 = st.columns([1, 2, 1])
+
+# Full-width metrics for mobile
+st.metric(...)
+```
+
+**Streamlit handles:**
+- Mobile responsiveness automatically
+- Column stacking on small screens
+- Font scaling
+- Touch-friendly buttons
+
+## LaTeX Rendering
+
+Streamlit uses KaTeX for math rendering:
+
+```python
+st.latex(r"IOP_{safe} = \frac{\sum IOP_i - IOP_{min} - IOP_{max}}{n - 2}")
+```
+
+**Best practices:**
+- Use raw strings (`r"..."`)
+- Standard LaTeX syntax
+- Inline or display mode supported
+- Renders on server-side
+
+## Performance Considerations
+
+- **No heavy computations in UI**: All calculations in backend
+- **Lazy loading**: Results computed only on button click
+- **No caching needed**: Calculations are fast (< 1ms)
+- **Minimal redraws**: Conditional rendering prevents unnecessary updates
+
+## Accessibility
+
+- **High contrast**: Dark theme with light text
+- **Clear hierarchy**: Headers, sections, dividers
+- **Descriptive labels**: All inputs have help text
+- **Color + text**: Status uses both color and words
+- **Keyboard navigation**: Streamlit provides built-in support
+
+## Development Workflow
+
+```python
+if __name__ == "__main__":
+    main()
+```
+
+**Running the app:**
+```bash
+streamlit run src/app_main.py
+# or
+python app.py  # Launches via app.py wrapper
+```
+
+**Hot reload:**
+- Streamlit watches file changes
+- Auto-reloads on save
+- Fast development iteration
